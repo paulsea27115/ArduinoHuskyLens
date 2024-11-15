@@ -11,26 +11,32 @@ const int speakerPin = 10;
 
 const int tones = 32;
 
-const int ROWS = 4; // 행의 수
-const int COLS = 4; // 열의 수
+const int ROWS = 4;  // 행의 수
+const int COLS = 4;  // 열의 수
 
 const int numTones = 8;
+
+const int pressTone = 261;
+
+int worngCount = 1;
 
 int check = false;
 
 String inputPassword = "";
 
+String visiblePassword = "";
+
 String correctPassword = "1234";
 
 char keys[ROWS][COLS] = {
-  {'1', '2', '3', 'A'},
-  {'4', '5', '6', 'B'},
-  {'7', '8', '9', 'C'},
-  {'*', '0', '#', 'D'}
+  { '1', '2', '3', 'A' },
+  { '4', '5', '6', 'B' },
+  { '7', '8', '9', 'C' },
+  { '*', '0', '#', 'D' }
 };
 
-byte rowPins[ROWS] = {9, 8, 7, 6};
-byte colPins[COLS] = {5, 4, 3, 2};
+byte rowPins[ROWS] = { 9, 8, 7, 6 };
+byte colPins[COLS] = { 5, 4, 3, 2 };
 
 void printResult(HUSKYLENSResult result);
 bool facedetected(int ID);
@@ -38,6 +44,7 @@ void lcdInitPassword();
 void passwordCorrect();
 void passwordWrong();
 void lcdInitHusky();
+void muchWrong();
 
 void setup() {
   Serial.begin(115200);
@@ -62,9 +69,9 @@ void setup() {
     delay(100);
   }
 
-  lcd.setCursor(0,0);
+  lcd.setCursor(0, 0);
 
-  lcd.print("trun on");
+  lcd.print("trun on"); 
 
   delay(500);
 
@@ -72,64 +79,82 @@ void setup() {
 }
 
 void loop() {
-  if(check) {
+  if (check) {
     for (int i = 0; i < ROWS; i++) {
-      digitalWrite(rowPins[i], HIGH); // 현재 행 선택
+      digitalWrite(rowPins[i], HIGH);  // 현재 행 선택
       for (int j = 0; j < COLS; j++) {
-        if (digitalRead(colPins[j]) == HIGH) { // 버튼이 눌렸다면
+        if (digitalRead(colPins[j]) == HIGH) {  // 버튼이 눌렸다면
           Serial.print("Pressed: ");
           Serial.println(keys[i][j]);
 
-          if(keys[i][j] == '*') {
+          tone(speakerPin, pressTone, 150);
+
+          if (keys[i][j] == '*') {  // 별 입력
             lcdInitPassword();
-            
-            if(correctPassword == inputPassword) {
+
+            if (correctPassword == inputPassword) {  // 비번 맞음
               passwordCorrect();
-              
-              digitalWrite(Relay,HIGH);
+
+              digitalWrite(Relay, HIGH);
               delay(3000);
-              digitalWrite(Relay,LOW);
+              digitalWrite(Relay, LOW);
               delay(100);
-              digitalWrite(Relay,HIGH);
+              digitalWrite(Relay, HIGH);
               delay(100);
-              digitalWrite(Relay,LOW);
+              digitalWrite(Relay, LOW);
 
-              check = false;
-            } else {
-              passwordWrong();
-              delay(1000);
+            } else {  // 비번 아님
+              if (worngCount >= 5) {
+                worngCount = 1;
 
-              check = false; 
+                for (int i = 0; i < 5; i++) {
+                  muchWrong();
+
+                  delay(500);
+
+                  lcd.clear();
+
+                  delay(500);
+                }
+
+              } else {
+                passwordWrong();
+
+                delay(1000);
+              }
             }
 
+            check = false;
+
             inputPassword = "";
+            visiblePassword = "";
 
-          } else {
+          } else {  // 확인 아닐때
             inputPassword += keys[i][j];
+            visiblePassword += "*";
 
-            lcd.setCursor(0,1);
+            lcd.setCursor(0, 1);
 
-            lcd.print(inputPassword);
+            lcd.print(visiblePassword);
           }
-          delay(300); // 디바운스 시간
+
+          delay(300);  // 디바운스 시간
         }
       }
-      digitalWrite(rowPins[i], LOW); // 행 선택 해제
+      digitalWrite(rowPins[i], LOW);  // 행 선택 해제
     }
   } else {
     if (!huskylens.request()) Serial.println(F("Fail to request data from HUSKYLENS, recheck the connection!"));
-    else if(!huskylens.isLearned()) Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
-    else if(!huskylens.available()) {
+    else if (!huskylens.isLearned()) Serial.println(F("Nothing learned, press learn button on HUSKYLENS to learn one!"));
+    else if (!huskylens.available()) {
       Serial.println(F("No block or arrow appears on the screen!"));
 
-      lcd.setCursor(0,0);
+      lcd.setCursor(0, 0);
 
       lcdInitHusky();
-    }
-    else {
+    } else {
       Serial.println(F("--------------------------------------------------"));
-      while (huskylens.available())
-      {
+      while (huskylens.available()) {
         HUSKYLENSResult result = huskylens.read();
         printResult(result);
       }
@@ -140,10 +165,20 @@ void loop() {
 
 
 void printResult(HUSKYLENSResult result) {
-  if (result.command == COMMAND_RETURN_BLOCK){
-    // Serial.println(String()+F("Block:xCenter=")+result.xCenter+F(",yCenter=")+result.yCenter+F(",width=")+result.width+F(",height=")+result.height+F(",ID=")+result.ID);
-    
-    if(facedetected(result.ID)) {
+  if (result.command == COMMAND_RETURN_BLOCK) {
+    // Serial.println(String()
+    // + F("Block:xCenter=")
+    // + result.xCenter
+    // + F(",yCenter=")
+    // + result.yCenter
+    // + F(",width=")
+    // + result.width
+    // + F(",height=")
+    // + result.height
+    // + F(",ID=")
+    // + result.ID);
+
+    if (facedetected(result.ID)) {
       check = true;
       lcdInitPassword();
     }
@@ -154,12 +189,12 @@ void printResult(HUSKYLENSResult result) {
 }
 
 bool facedetected(int ID) {
-  if(ID >= 1) {
+  if (ID >= 1) {
     Serial.println("you are right person");
     lcd.clear();
 
-    lcd.setCursor(0,0);
-    
+    lcd.setCursor(0, 0);
+
     lcd.print("Correct!");
 
     return true;
@@ -167,7 +202,7 @@ bool facedetected(int ID) {
     Serial.println("who are you?");
     lcd.clear();
 
-    lcd.setCursor(0,0);
+    lcd.setCursor(0, 0);
 
     lcd.print("inCorrect!");
 
@@ -196,7 +231,7 @@ void lcdInitHusky() {
 void passwordCorrect() {
   lcd.clear();
 
-  lcd.setCursor(0,0);
+  lcd.setCursor(0, 0);
 
   lcd.print("correct!!");
 
@@ -206,13 +241,27 @@ void passwordCorrect() {
 }
 
 void passwordWrong() {
+  worngCount += 1;
+
   lcd.clear();
 
-  lcd.setCursor(0,0);
+  lcd.setCursor(0, 0);
 
   lcd.print("Wrong...");
 
-  Serial.println("enter the door");
+  tone(speakerPin, 65, 500);
+}
+
+void muchWrong() {
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+
+  lcd.print("Password is five");
+
+  lcd.setCursor(0, 1);
+
+  lcd.print(" time incorrect ");
 
   tone(speakerPin, 65, 500);
 }
